@@ -1,3 +1,79 @@
-<p>
-  Hello
-</p>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>도트 그림 그리기</title>
+    <style>
+        #canvas {
+            border: 1px solid black;
+        }
+        #coordinates {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas" width="400" height="400"></canvas>
+    <div id="coordinates"></div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const coordinatesDiv = document.getElementById('coordinates');
+
+        const dotSize = 8;
+        const gridSize = 50;
+
+        // 흰색 배경 그리기
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // 그리드 그리기
+        ctx.strokeStyle = '#eee';
+        for (let i = 0; i <= gridSize; i++) {
+            ctx.beginPath();
+            ctx.moveTo(i * dotSize, 0);
+            ctx.lineTo(i * dotSize, canvas.height);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(0, i * dotSize);
+            ctx.lineTo(canvas.width, i * dotSize);
+            ctx.stroke();
+        }
+
+        let isDrawing = false;
+
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseout', stopDrawing);
+
+        function startDrawing(e) {
+            isDrawing = true;
+            draw(e);
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor((e.clientX - rect.left) / dotSize);
+            const y = Math.floor((e.clientY - rect.top) / dotSize);
+
+            if (x >= 0 && x < gridSize && y >= 0 && y < gridSize) {
+                ctx.fillStyle = 'black';
+                ctx.fillRect(x * dotSize, y * dotSize, dotSize, dotSize);
+
+                // 좌표 출력
+                coordinatesDiv.textContent = `마지막으로 그린 도트: (${x}, ${y})`;
+            }
+        }
+
+        function stopDrawing() {
+            isDrawing = false;
+        }
+    </script>
+</body>
+</html>
