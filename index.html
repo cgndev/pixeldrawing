@@ -8,71 +8,167 @@
         #canvas {
             border: 1px solid black;
         }
-        #coordinates {
+        #coordinates, #coordinateInput {
             margin-top: 10px;
+        }
+        #coordinateLog, #coordinateText {
+            width: 200px;
+            height: 300px;
+            border: 1px solid #ccc;
+            overflow-y: scroll;
+            padding: 5px;
+            margin-top: 10px;
+            font-family: monospace;
+        }
+        button {
+            margin-top: 10px;
+            padding: 5px 10px;
+            font-size: 16px;
         }
     </style>
 </head>
 <body>
     <canvas id="canvas" width="400" height="400"></canvas>
+    <div>
+        <button id="clearButton">새로 그리기</button>
+    </div>
     <div id="coordinates"></div>
+    <textarea id="coordinateLog" readonly></textarea>
+    <div id="coordinateInput">
+        <textarea id="coordinateText" placeholder="(t, x, y) 형식의 좌표를 입력하세요"></textarea>
+        <button id="drawFromCoordinates">좌표로 그리기</button>
+    </div>
 
     <script>
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
         const coordinatesDiv = document.getElementById('coordinates');
+        const coordinateLog = document.getElementById('coordinateLog');
+        const clearButton = document.getElementById('clearButton');
+        const coordinateText = document.getElementById('coordinateText');
+        const drawFromCoordinatesButton = document.getElementById('drawFromCoordinates');
 
         const dotSize = 8;
         const gridSize = 50;
 
-        // 흰색 배경 그리기
-        ctx.fillStyle = 'white';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        let isDrawing = false;
+        let lastX = -1;
+        let lastY = -1;
+        let lineNumber = 0;
 
-        // 그리드 그리기
-        ctx.strokeStyle = '#eee';
-        for (let i = 0; i <= gridSize; i++) {
-            ctx.beginPath();
-            ctx.moveTo(i * dotSize, 0);
-            ctx.lineTo(i * dotSize, canvas.height);
-            ctx.stroke();
+        function initializeCanvas() {
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            ctx.beginPath();
-            ctx.moveTo(0, i * dotSize);
-            ctx.lineTo(canvas.width, i * dotSize);
-            ctx.stroke();
+            ctx.strokeStyle = '#eee';
+            for (let i = 0; i <= gridSize; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * dotSize, 0);
+                ctx.lineTo(i * dotSize, canvas.height);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(0, i * dotSize);
+                ctx.lineTo(canvas.width, i * dotSize);
+                ctx.stroke();
+            }
         }
 
-        let isDrawing = false;
+        initializeCanvas();
 
         canvas.addEventListener('mousedown', startDrawing);
         canvas.addEventListener('mousemove', draw);
         canvas.addEventListener('mouseup', stopDrawing);
         canvas.addEventListener('mouseout', stopDrawing);
+        clearButton.addEventListener('click', clearCanvas);
+        drawFromCoordinatesButton.addEventListener('click', drawFromCoordinates);
 
         function startDrawing(e) {
             isDrawing = true;
-            draw(e);
+            const [x, y] = getGridPosition(e);
+            lastX = x;
+            lastY = y;
+            drawDot(x, y);
         }
 
         function draw(e) {
             if (!isDrawing) return;
 
-            const rect = canvas.getBoundingClientRect();
-            const x = Math.floor((e.clientX - rect.left) / dotSize);
-            const y = Math.floor((e.clientY - rect.top) / dotSize);
-
-            if (x >= 0 && x < gridSize && y >= 0 && y < gridSize) {
-                ctx.fillStyle = 'black';
-                ctx.fillRect(x * dotSize, y * dotSize, dotSize, dotSize);
-
-                // 좌표 출력
-                coordinatesDiv.textContent = `마지막으로 그린 도트: (${x}, ${y})`;
-            }
+            const [x, y] = getGridPosition(e);
+            drawLine(lastX, lastY, x, y);
+            lastX = x;
+            lastY = y;
         }
 
         function stopDrawing() {
             isDrawing = false;
+            lastX = -1;
+            lastY = -1;
+        }
+
+        function getGridPosition(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor((e.clientX - rect.left) / dotSize);
+            const y = Math.floor((e.clientY - rect.top) / dotSize);
+            return [x, y];
+        }
+
+        function drawDot(x, y) {
+            if (x >= 0 && x < gridSize && y >= 0 && y < gridSize) {
+                ctx.fillStyle = 'black';
+                ctx.fillRect(x * dotSize, y * dotSize, dotSize, dotSize);
+                updateCoordinates(x, y);
+            }
+        }
+
+        function drawLine(x0, y0, x1, y1) {
+            const dx = Math.abs(x1 - x0);
+            const dy = Math.abs(y1 - y0);
+            const sx = (x0 < x1) ? 1 : -1;
+            const sy = (y0 < y1) ? 1 : -1;
+            let err = dx - dy;
+
+            while (true) {
+                drawDot(x0, y0);
+
+                if (x0 === x1 && y0 === y1) break;
+                const e2 = 2 * err;
+                if (e2 > -dy) {
+                    err -= dy;
+                    x0 += sx;
+                }
+                if (e2 < dx) {
+                    err += dx;
+                    y0 += sy;
+                }
+            }
+        }
+
+        function updateCoordinates(x, y) {
+            lineNumber++;
+            coordinatesDiv.textContent = `마지막으로 그린 도트: (${x}, ${y})`;
+            coordinateLog.value += `(${lineNumber}, ${x}, ${y})\n`;
+            coordinateLog.scrollTop = coordinateLog.scrollHeight;
+        }
+
+        function clearCanvas() {
+            initializeCanvas();
+            coordinatesDiv.textContent = '';
+            coordinateLog.value = '';
+            lineNumber = 0;
+        }
+
+        function drawFromCoordinates() {
+            clearCanvas();
+            const coordinates = coordinateText.value.split('\n');
+            coordinates.forEach(coord => {
+                const match = coord.match(/\((\d+),\s*(\d+),\s*(\d+)\)/);
+                if (match) {
+                    const x = parseInt(match[2]);
+                    const y = parseInt(match[3]);
+                    drawDot(x, y);
+                }
+            });
         }
     </script>
 </body>
